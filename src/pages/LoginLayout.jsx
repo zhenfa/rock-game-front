@@ -1,5 +1,6 @@
-import React, { useRef } from 'react'
-import { Button, Label, TextInput } from 'flowbite-react';
+import React, { useRef, useState } from 'react'
+import { Button, Label, TextInput, Spinner } from 'flowbite-react';
+import axios from 'axios';
 
 function LoginLayout() {
 
@@ -14,51 +15,123 @@ function LoginLayout() {
         { id:"7", type:"", message:"● 贏家根據規則獲勝" }
     ];
 
+    /** loading flag 狀態 */
+    let [loadFlag, setLoadFlag] = useState({
+        checkName:false,
+        login:false
+    });
+
     /** 名稱 Input Dom 參考 */
     const nameInpElement = useRef(null);
 
-    /**
-     *  [ API ]-檢查用戶名是否被占用
-     *  檢查用戶名是否占用。
+    /** [ API ]-檢查用戶名
+     *  檢查用戶名是否已被使用。
      *  @param { object } 用戶名 dom 參考
      */
-    const checkNameClick = () => {
-        const name = nameInpElement.current.value;
-        
-        /** user name check */
-        if( !name ){
+    const checkNameClick = async () => {
+        const username = nameInpElement.current.value;
+
+        /** user username check */
+        if( !username ){
             alert("請輸入您角色名稱");
             return
         }
+        try{
+            const API_URL = `${process.env.REACT_APP_API_URL}:${process.env.REACT_APP_API_PORT}/user/${username}`;
+
+            /** 確認用戶檢查按鈕顯示加載中 */
+            setLoadFlag({
+                ...loadFlag, checkName:true
+            })
+
+            /** check username is used or not */
+            let result = await axios.get(API_URL);
+
+            let { data, message } = result;
+
+            /** 在線人物表有發現該暱正在被使用 */
+            if( data.status )
+                throw new Error( message );
+
+            /** 確認用戶檢查按鈕加載中顯示取消 */
+            setLoadFlag({
+                ...loadFlag, checkName:false
+            })
+            /** 在線人物表中無該人物 */
+            alert( message );
+
+        }catch(error){
+            /** 確認用戶檢查按鈕加載中顯示取消 */
+            setLoadFlag({
+                ...loadFlag, checkName:false
+            })
+            /** Log recording */
+            alert( error.message );
+        }
     }
 
-    /**
-     * [ API ]-登入功能
-     * 檢查用戶名是否占用，生成 jwt 令牌身分保存。
+    /** [ API ]-登入功能
+     * 檢查用戶名是否已被使用，生成 jwt 令牌身分保存。
      * @param { object } 用戶名 dom 參考
      */
-    const loginClick = () => {
-        let name = nameInpElement.current.value;
+    const loginClick = async () => {
+        let username = nameInpElement.current.value;
         
-        if( !name )
+        if( !username )
         {
             alert("請輸入您角色名稱");
             return
         }
+        try{
+            const API_URL = `${process.env.REACT_APP_API_URL}:${process.env.REACT_APP_API_PORT}/login`;
+
+            /** 登入按鈕顯示加載中 */
+            setLoadFlag({
+                ...loadFlag, login:true
+            })
+
+            let result = await axios.post(API_URL, {username});
+            
+            if( result )
+            {
+                let { username, token } = result.data;
+
+                /** save token and username */
+                window.localStorage.setItem('token', token);
+                window.localStorage.setItem('username', username);
+
+                /** 登入按鈕加載中顯示取消 */
+                setLoadFlag({
+                    ...loadFlag, login:false
+                })
+
+                /** redire to charactor pick page */
+
+            }
+        }catch(error){
+            /** 登入按鈕加載中顯示取消 */
+            setLoadFlag({
+                ...loadFlag, login:false
+            })
+            /** Log recording */
+            alert( error.message );
+        }
+        
+        
     }
 
   return (
     <>
-        <div className="w-full h-screen bg-blue-100 flex justify-center items-center py-10 px-20">
-            <div className="flex md:justify-between rounded-md bg-white w-full h-full">
+        <div className="w-full h-screen bg-blue-100 flex justify-center items-center py-14 px-20">
+            <div className="flex md:justify-between rounded-lg bg-white w-full max-w-5xl h-full">
                 { /** login Form */ }
-                <form action="" className="md:px-14 md:py-[65px] px-6 py-8 flex flex-col justify-between w-full">
+                <form action={`/charactor-picker`} className="md:px-14 md:py-[65px] px-6 py-8 flex flex-col justify-between w-full">
                     <div className="w-full">
                         <header className="font-black text-3xl text-center pb-5 tracking-wide">Login</header>
-                        <div className="mb-4">
+                        <div className="mb-4 mt-10">
                             <Label
                                 className="text-gray-500"
-                                htmlFor="charactor-name"
+                                htmlFor="username"
                                 value="角色暱稱"
                             />
                             <TextInput
@@ -66,35 +139,60 @@ function LoginLayout() {
                                 id="email1" 
                                 placeholder="請輸入您的角色暱稱"
                                 required
-                                type="email"
+                                type="text"
                                 ref={nameInpElement}
+                                disabled={
+                                    (loadFlag.checkName || loadFlag.login)
+                                }
                             />
                             <div className="flex items-center flex-row-reverse">  
                                 <a href="" className="ml-3 text-sm text-gray-400 underline hover:text-gray-700 cursor-pointer md:hidden">了解遊戲規則</a>
                                 <Button 
                                     pill 
                                     size="xs"
-                                    className="bg-blue-500 font-semibold tracking-wider"
+                                    className="bg-blue-500 font-semibold tracking-wider duration-200"
                                     onClick={checkNameClick}
+                                    disabled={
+                                        (loadFlag.checkName || loadFlag.login)
+                                    }
                                     >
                                     用戶檢查
+                                    { (loadFlag.checkName) ? (
+                                        <Spinner
+                                            className="ml-1"
+                                            aria-label="Spinner button example"
+                                            size="sm"
+                                        />) : ""
+                                    } 
                                 </Button> 
                             </div>
                             
                         </div>
                     </div>
                     <Button 
-                        className="text-md font-bold"
+                        className="text-md font-bold mb-10 duration-200"
                         color="blue"
+                        type="button"
                         onClick={loginClick}
+                        disabled={
+                            (loadFlag.checkName || loadFlag.login)
+                        }
                     >
-                        送出
+                    送出
+                    { 
+                        (loadFlag.login) ? (
+                                    <Spinner
+                                        className="ml-1"
+                                        aria-label="Spinner button example"
+                                        size="sm"
+                                    />) : ""
+                                }
                     </Button>
 
                 </form>
 
                 {/** div for game rule */}
-                <div className="md:flex px-14 py-[65px] flex-col bg-purple-900 w-full hidden">
+                <div className="md:flex px-14 py-[65px] flex-col bg-purple-900 w-full rounded-r-lg hidden">
                     { 
                         rules.map( item => {
                             return ( item.type === "title" ) 
