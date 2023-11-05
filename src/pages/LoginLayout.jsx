@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react'
 import { Button, Label, TextInput, Spinner } from 'flowbite-react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-function LoginLayout() {
+function LoginLayout({socket}) {
 
     /** rules array */
     const rules = [
@@ -23,6 +24,8 @@ function LoginLayout() {
 
     /** 名稱 Input Dom 參考 */
     const nameInpElement = useRef(null);
+    /** */
+    const navigate = useNavigate();
 
     /** [ API ]-檢查用戶名
      *  檢查用戶名是否已被使用。
@@ -83,31 +86,24 @@ function LoginLayout() {
             return
         }
         try{
-            const API_URL = `${process.env.REACT_APP_API_URL}:${process.env.REACT_APP_API_PORT}/login`;
-
             /** 登入按鈕顯示加載中 */
             setLoadFlag({
                 ...loadFlag, login:true
             })
 
-            let result = await axios.post(API_URL, {username});
-            
-            if( result )
-            {
-                let { username, token } = result.data;
+            /** Username 存入 LocalStorage */
+            window.localStorage.setItem('username', username);
 
-                /** save token and username */
-                window.localStorage.setItem('token', token);
-                window.localStorage.setItem('username', username);
+            /** 通知 Server 該用戶已上線 */
+            socket.emit('online', {username});
 
-                /** 登入按鈕加載中顯示取消 */
-                setLoadFlag({
-                    ...loadFlag, login:false
-                })
+            /** 登入按鈕加載中顯示取消 */
+             setLoadFlag({
+                ...loadFlag, login:false
+            })
 
-                /** redire to charactor pick page */
+            navigate('/pick');
 
-            }
         }catch(error){
             /** 登入按鈕加載中顯示取消 */
             setLoadFlag({
@@ -116,13 +112,11 @@ function LoginLayout() {
             /** Log recording */
             alert( error.message );
         }
-        
-        
     }
 
   return (
     <>
-        <div className="w-full h-screen bg-blue-100 flex justify-center items-center py-14 px-20">
+        <div className="w-full h-screen bg-gray-100 flex justify-center items-center py-14 px-20">
             <div className="flex md:justify-between rounded-lg bg-white w-full max-w-5xl h-full">
                 { /** login Form */ }
                 <form action={`/charactor-picker`} className="md:px-14 md:py-[65px] px-6 py-8 flex flex-col justify-between w-full">
